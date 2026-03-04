@@ -1,0 +1,273 @@
+// =============================================
+// PLATAFORMA DE MENTORIA — SCHEMA FINAL
+// =============================================
+// 5 tabelas: mentors, mentees, invite_codes, generated_reports, message_cards
+// Auth: Mentor (email/senha + Google) | Mentee (Google/Apple + invite code)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  APPLE
+  MENTOR_CREATED
+}
+
+enum OnboardingStatus {
+  PENDING
+  PHASE_1
+  PHASE_2
+  PHASE_3
+  COMPLETED
+}
+
+enum ReportType {
+  PERSONA_ICP
+  POSICIONAMENTO
+  MENSAGEM_CLARA
+}
+
+enum ReportStatus {
+  PROCESSING
+  COMPLETED
+  ERROR
+}
+
+enum MessageCardType {
+  DESEJO
+  PROBLEMA
+  GUIA
+  PLANO
+  CONVITE
+  SUCESSO
+  FRACASSO
+}
+
+enum InviteStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+// =============================================
+// MENTOR
+// =============================================
+// Auth: email/senha OU Google
+// Google login compara email — só loga se já existe como mentor
+
+model Mentor {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  authProvider AuthProvider @default(EMAIL) @map("auth_provider")
+  googleId     String?      @unique @map("google_id")
+  name         String
+  avatarUrl    String?      @map("avatar_url")
+  phone        String?
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  mentees     Mentee[]
+  inviteCodes InviteCode[]
+
+  @@map("mentors")
+}
+
+// =============================================
+// INVITE CODE
+// =============================================
+// Código gerado automaticamente ao criar mentee (6 chars)
+// Mentee loga social → digita código → vincula ao mentor
+// Código usado 1x, não expira
+
+model InviteCode {
+  id             String       @id @default(uuid())
+  mentorId       String       @map("mentor_id")
+  code           String       @unique
+  status         InviteStatus @default(ACTIVE)
+  menteeName     String?      @map("mentee_name")
+  menteeEmail    String?      @map("mentee_email")
+  forMenteeId    String?      @map("for_mentee_id")
+  usedByMenteeId String?      @unique @map("used_by_mentee_id")
+  usedAt         DateTime?    @map("used_at")
+  expiresAt      DateTime?    @map("expires_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  mentor       Mentor  @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  usedByMentee Mentee? @relation(fields: [usedByMenteeId], references: [id], onDelete: SetNull)
+
+  @@index([mentorId])
+  @@map("invite_codes")
+}
+
+// =============================================
+// MENTEE
+// =============================================
+// Auth: Google ou Apple (social only)
+// Primeiro login: social → código 6 chars → vincula
+// Próximos logins: social → direto (já vinculado)
+
+model Mentee {
+  id           String       @id @default(uuid())
+  mentorId     String       @map("mentor_id")
+  authProvider AuthProvider @map("auth_provider")
+  socialId     String       @map("social_id")
+  email        String
+  name         String
+  avatarUrl    String?      @map("avatar_url")
+  phone        String?
+  instagram    String?
+  isActive     Boolean      @default(true) @map("is_active")
+
+  onboardingStatus OnboardingStatus @default(PENDING) @map("onboarding_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mentor              Mentor               @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  inviteCode          InviteCode?
+  reports             GeneratedReport[]
+  messageCards        MessageCard[]
+  instagramProfile    InstagramProfile?
+  perceptionAnalysis  PerceptionAnalysis?
+
+  @@unique([authProvider, socialId])
+  @@unique([mentorId, email])
+  @@index([mentorId])
+  @@map("mentees")
+}
+
+// =============================================
+// GENERATED REPORT
+// =============================================
+// 3 por mentee (1 por fase). Resposta do GPT armazenada.
+// answers = snapshot das respostas do questionário
+
+model GeneratedReport {
+  id       String       @id @default(uuid())
+  menteeId String       @map("mentee_id")
+  type     ReportType
+  status   ReportStatus @default(PROCESSING)
+  title    String
+
+  answers           Json
+  rawResponse       String? @map("raw_response") @db.Text
+  structuredContent Json?   @map("structured_content")
+  renderedHtml      String? @map("rendered_html") @db.Text
+
+  errorMessage String? @map("error_message")
+  modelUsed    String? @map("model_used")
+  version      Int     @default(1)
+
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  mentee       Mentee        @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+  messageCards MessageCard[]
+
+  @@unique([menteeId, type])
+  @@index([menteeId])
+  @@map("generated_reports")
+}
+
+// =============================================
+// MESSAGE CARD
+// =============================================
+// 7 cards gerados quando report MENSAGEM_CLARA é criado
+// Exibidos em carrossel no app
+
+model MessageCard {
+  id           String          @id @default(uuid())
+  reportId     String          @map("report_id")
+  menteeId     String          @map("mentee_id")
+  cardType     MessageCardType @map("card_type")
+  sortOrder    Int             @map("sort_order")
+  title        String
+  subtitle     String?
+  bodyText     String          @map("body_text") @db.Text
+  bulletPoints Json?           @map("bullet_points")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  report GeneratedReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  mentee Mentee          @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, cardType])
+  @@index([menteeId])
+  @@index([reportId])
+  @@map("message_cards")
+}
+
+// =============================================
+// INSTAGRAM PROFILE
+// =============================================
+// Scraped Instagram data cached per mentee
+// Raw API response stored for debugging/future extraction
+
+model InstagramProfile {
+  id        String   @id @default(uuid())
+  menteeId  String   @unique @map("mentee_id")
+  username  String
+
+  // Normalized profile fields
+  fullName       String?  @map("full_name")
+  biography      String?  @db.Text
+  profilePicUrl  String?  @map("profile_pic_url") @db.Text
+  followerCount  Int      @default(0) @map("follower_count")
+  followingCount Int      @default(0) @map("following_count")
+  postCount      Int      @default(0) @map("post_count")
+  isVerified     Boolean  @default(false) @map("is_verified")
+  isPrivate      Boolean  @default(false) @map("is_private")
+  category       String?
+  externalUrl    String?  @map("external_url") @db.Text
+
+  // Posts stored as JSON array (12 items max)
+  posts Json? @default("[]")
+
+  // Raw API response for debugging/future extraction
+  rawResponse Json? @map("raw_response")
+
+  // Scrape metadata
+  scrapeStatus String   @default("success") @map("scrape_status")
+  scrapedAt    DateTime @default(now()) @map("scraped_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_profiles")
+}
+
+// =============================================
+// PERCEPTION ANALYSIS
+// =============================================
+// AI-powered perception-of-value analysis per mentee
+// Latest analysis stored (upsert overwrites on re-analyze)
+
+model PerceptionAnalysis {
+  id       String @id @default(uuid())
+  menteeId String @unique @map("mentee_id") // latest per mentee, upsert overwrites
+
+  score        Int          // 0-100 extracted from AI response
+  rawResponse  String       @map("raw_response") @db.Text // Full AI text
+  modelUsed    String?      @map("model_used")
+  status       ReportStatus @default(PROCESSING) // Reuse existing enum
+  errorMessage String?      @map("error_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@map("perception_analyses")
+}
