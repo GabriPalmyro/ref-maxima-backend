@@ -10,6 +10,8 @@ import { ReportModule } from './report/report.module';
 import { MessageCardModule } from './message-card/message-card.module';
 import { InstagramModule } from './instagram/instagram.module';
 import { PerceptionModule } from './perception/perception.module';
+import { StorageModule } from './storage/storage.module';
+import { InstagramDraftModule } from './instagram-draft/instagram-draft.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { PerceptionModule } from './perception/perception.module';
     MessageCardModule,
     InstagramModule,
     PerceptionModule,
+    StorageModule,
+    InstagramDraftModule,
   ],
 })
 export class AppModule {}

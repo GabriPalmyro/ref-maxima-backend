@@ -9,6 +9,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { InstagramApiService } from './instagram-api.service';
 import {
@@ -20,7 +21,7 @@ import { RapidApiProfileResponse } from './interfaces/rapidapi-response.interfac
 import { normalizeInstagramHandle } from './utils/handle-normalizer';
 import { InstagramProfile } from '@prisma/client';
 
-const THROTTLE_MINUTES = 15; // Minimum minutes between re-scrapes
+const THROTTLE_MINUTES = 2; // Minimum minutes between re-scrapes
 
 @Injectable()
 export class InstagramService {
@@ -139,6 +140,58 @@ export class InstagramService {
     return this.getProfile(menteeId, true);
   }
 
+  /**
+   * Force-refresh Instagram data from RapidAPI and detect if perception-relevant
+   * fields changed. Used by PerceptionService to skip AI when data is unchanged.
+   */
+  async forceRefreshAndDetectChanges(
+    menteeId: string,
+  ): Promise<InstagramProfileResponse & { changed: boolean }> {
+    // Read old hash before scraping
+    const oldRow = await this.prisma.instagramProfile.findUnique({
+      where: { menteeId },
+      select: { dataHash: true },
+    });
+    const oldHash = oldRow?.dataHash ?? null;
+
+    // Always scrape fresh (bypass getProfile throttle)
+    const result = await this.getProfile(menteeId, true);
+
+    // Read new hash after scrape
+    const newRow = await this.prisma.instagramProfile.findUnique({
+      where: { menteeId },
+      select: { dataHash: true },
+    });
+    const newHash = newRow?.dataHash ?? null;
+
+    const changed = oldHash !== newHash;
+    this.logger.log(
+      `Change detection for mentee ${menteeId}: ${changed ? 'CHANGED' : 'UNCHANGED'} (old=${oldHash?.slice(0, 8) ?? 'null'}, new=${newHash?.slice(0, 8) ?? 'null'})`,
+    );
+
+    return { ...result, changed };
+  }
+
+  /**
+   * Compute a SHA-256 hash of perception-relevant Instagram fields.
+   * Excludes volatile fields (likeCount, commentCount) that don't affect perception.
+   */
+  private computeDataHash(
+    profile: Partial<InstagramProfileData>,
+    posts: InstagramPostData[],
+  ): string {
+    const payload = {
+      biography: profile.biography ?? '',
+      followerCount: profile.followerCount ?? 0,
+      postCount: profile.postCount ?? 0,
+      posts: posts.map((p) => ({
+        imageUrl: p.imageUrl,
+        caption: p.caption ?? '',
+      })),
+    };
+    return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  }
+
   // ==========================================================================
   // Private helpers
   // ==========================================================================
@@ -230,6 +283,7 @@ export class InstagramService {
       // Success — public profile
       const { profile, posts } = this.normalizeRapidApiResponse(raw, rawPosts);
       const now = new Date();
+      const dataHash = this.computeDataHash(profile, posts);
 
       await this.prisma.instagramProfile.upsert({
         where: { menteeId },
@@ -248,6 +302,7 @@ export class InstagramService {
           externalUrl: profile.externalUrl,
           posts: posts as any,
           rawResponse: raw as any,
+          dataHash,
           scrapeStatus: 'success',
           scrapedAt: now,
         },
@@ -265,6 +320,7 @@ export class InstagramService {
           externalUrl: profile.externalUrl,
           posts: posts as any,
           rawResponse: raw as any,
+          dataHash,
           scrapeStatus: 'success',
           scrapedAt: now,
         },

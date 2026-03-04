@@ -141,6 +141,7 @@ model Mentee {
   reports             GeneratedReport[]
   messageCards        MessageCard[]
   instagramProfile    InstagramProfile?
+  instagramDraft      InstagramDraft?
   perceptionAnalysis  PerceptionAnalysis?
 
   @@unique([authProvider, socialId])
@@ -237,6 +238,9 @@ model InstagramProfile {
   // Raw API response for debugging/future extraction
   rawResponse Json? @map("raw_response")
 
+  // Hash of perception-relevant fields for change detection
+  dataHash String? @map("data_hash")
+
   // Scrape metadata
   scrapeStatus String   @default("success") @map("scrape_status")
   scrapedAt    DateTime @default(now()) @map("scraped_at")
@@ -246,6 +250,28 @@ model InstagramProfile {
   mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
 
   @@map("instagram_profiles")
+}
+
+// =============================================
+// INSTAGRAM DRAFT
+// =============================================
+// Editable "fake Instagram" profile per mentee
+// Mentee can customize bio, profile pic, link, and post grid
+
+model InstagramDraft {
+  id            String   @id @default(uuid())
+  menteeId      String   @unique @map("mentee_id")
+  fullName      String?  @map("full_name")
+  biography     String?  @db.Text
+  profilePicUrl String?  @map("profile_pic_url") @db.Text
+  externalUrl   String?  @map("external_url") @db.Text
+  posts         Json     @default("[]")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_drafts")
 }
 
 // =============================================

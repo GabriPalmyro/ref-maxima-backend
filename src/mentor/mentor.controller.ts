@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -15,6 +16,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
+import { InstagramDraftService } from '../instagram-draft/instagram-draft.service';
 import { GenerateReportDto } from '../report/dto/generate-report.dto';
 import { CreateMenteeDto } from './dto/create-mentee.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
@@ -24,7 +26,10 @@ import { MentorService } from './mentor.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('mentor')
 export class MentorController {
-  constructor(private readonly mentorService: MentorService) {}
+  constructor(
+    private readonly mentorService: MentorService,
+    private readonly draftService: InstagramDraftService,
+  ) {}
 
   @Get('profile')
   getProfile(@CurrentUser() user: JwtPayload) {
@@ -102,5 +107,15 @@ export class MentorController {
     @Param('menteeId') menteeId: string,
   ) {
     return this.mentorService.getMenteeCards(user.sub, menteeId);
+  }
+
+  @Get('mentees/:id/instagram-draft')
+  async getMenteeInstagramDraft(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') menteeId: string,
+  ) {
+    const mentee = await this.mentorService.getMenteeDetail(user.sub, menteeId);
+    if (!mentee) throw new NotFoundException('Mentee not found');
+    return this.draftService.getDraft(menteeId);
   }
 }

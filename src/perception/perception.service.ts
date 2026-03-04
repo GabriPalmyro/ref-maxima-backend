@@ -41,8 +41,9 @@ export class PerceptionService {
   async analyze(
     menteeId: string,
   ): Promise<PerceptionAnalysisResponse | PerceptionErrorResponse> {
-    // 1. Fetch Instagram data
-    const instagramResult = await this.instagramService.getProfile(menteeId);
+    // 1. Force-refresh Instagram data and detect changes
+    const instagramResult =
+      await this.instagramService.forceRefreshAndDetectChanges(menteeId);
 
     if (instagramResult.status === 'no_handle') {
       return {
@@ -91,6 +92,26 @@ export class PerceptionService {
         message:
           'Dados do Instagram não disponíveis. Tente novamente mais tarde.',
       };
+    }
+
+    // 1b. Change detection gate — skip AI if Instagram data unchanged
+    if (!instagramResult.changed) {
+      const existingAnalysis = await this.prisma.perceptionAnalysis.findUnique({
+        where: { menteeId },
+      });
+      if (existingAnalysis && existingAnalysis.status === 'COMPLETED') {
+        this.logger.log(
+          `Instagram data unchanged for mentee ${menteeId} — returning cached perception analysis`,
+        );
+        return this.toResponse(existingAnalysis);
+      }
+      this.logger.log(
+        `Instagram data unchanged for mentee ${menteeId} but no existing analysis — generating first one`,
+      );
+    } else {
+      this.logger.log(
+        `Instagram data changed for mentee ${menteeId} — re-running AI analysis`,
+      );
     }
 
     // 2. Fetch Persona ICP report (graceful degradation if not available)
