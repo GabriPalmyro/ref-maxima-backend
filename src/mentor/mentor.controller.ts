@@ -9,8 +9,11 @@ import {
   Param,
   Post,
   Put,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -39,6 +42,23 @@ export class MentorController {
   @Put('profile')
   updateProfile(@CurrentUser() user: JwtPayload, @Body() dto: UpdateMentorDto) {
     return this.mentorService.updateProfile(user.sub, dto);
+  }
+
+  @Post('profile/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadMentorAvatar(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.mentorService.uploadMentorAvatar(
+      user.sub,
+      file.buffer,
+      file.mimetype,
+    );
   }
 
   @Get('mentees')
@@ -107,6 +127,25 @@ export class MentorController {
     @Param('menteeId') menteeId: string,
   ) {
     return this.mentorService.getMenteeCards(user.sub, menteeId);
+  }
+
+  @Post('mentees/:id/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadMenteeAvatar(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') menteeId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.mentorService.uploadMenteeAvatar(
+      user.sub,
+      menteeId,
+      file.buffer,
+      file.mimetype,
+    );
   }
 
   @Get('mentees/:id/instagram-draft')
