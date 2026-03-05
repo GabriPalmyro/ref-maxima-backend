@@ -1,9 +1,30 @@
+export interface PerceptionStructuredContent {
+  score: number;
+  diagnosticoPrincipal: string;
+  bio: {
+    avaliacao: string;
+    sugestao: string | null;
+  };
+  fotoPerfil: {
+    avaliacao: string;
+  } | null;
+  gridVisual: {
+    avaliacao: string;
+  } | null;
+  posts: {
+    avaliacao: string;
+    ajustes: string[];
+  };
+  ajustesImediatos: string[];
+}
+
 export interface PerceptionAnalysisResponse {
   id: string;
   menteeId: string;
   score: number;
   rawResponse: string;
-  status: string; // 'COMPLETED' | 'ERROR' | 'PROCESSING'
+  structuredContent: PerceptionStructuredContent | null;
+  status: string;
   errorMessage?: string | null;
   createdAt: string;
   updatedAt: string;

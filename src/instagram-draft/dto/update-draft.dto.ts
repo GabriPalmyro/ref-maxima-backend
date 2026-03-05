@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsArray, ValidateNested, MaxLength, ArrayMaxSize } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsArray,
+  ValidateNested,
+  MaxLength,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { DraftPostDto } from './draft-post.dto';
 

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   PerceptionAnalysisResponse,
   PerceptionErrorResponse,
+  PerceptionStructuredContent,
 } from './dto/perception-analysis.dto';
 import { ImageProcessingService } from './image-processing.service';
 import { buildPerceptionPrompt } from './prompts/perception.prompt';
@@ -223,8 +224,8 @@ export class PerceptionService {
       };
     }
 
-    // 5. Parse score from AI response
-    const score = this.parseScore(aiResult.content);
+    // 5. Parse structured response from AI
+    const { score, structured } = this.parseStructuredResponse(aiResult.content);
 
     // 6. Upsert result
     const record = await this.prisma.perceptionAnalysis.upsert({
@@ -233,6 +234,7 @@ export class PerceptionService {
         menteeId,
         score,
         rawResponse: aiResult.content,
+        structuredContent: structured as any,
         modelUsed: aiResult.model,
         status: 'COMPLETED',
         errorMessage: null,
@@ -240,6 +242,7 @@ export class PerceptionService {
       update: {
         score,
         rawResponse: aiResult.content,
+        structuredContent: structured as any,
         modelUsed: aiResult.model,
         status: 'COMPLETED',
         errorMessage: null,
@@ -332,31 +335,77 @@ export class PerceptionService {
   }
 
   /**
-   * Parse the score from AI response text.
-   * Tries "Percepção de valor: X/100" first, then any "X/100" pattern.
-   * Defaults to 0 if unparseable.
+   * Parse the structured JSON response from the AI.
+   * Returns { score, structured } where score is clamped 0-100.
+   * Falls back to regex score extraction if JSON parsing fails.
    */
-  private parseScore(text: string): number {
-    // Primary pattern: "Percepção de valor: X/100"
-    const primaryMatch = text.match(
-      /Percep[çc][ãa]o de valor:\s*(\d{1,3})\s*\/\s*100/i,
-    );
-    if (primaryMatch) {
-      const score = parseInt(primaryMatch[1], 10);
-      if (score >= 0 && score <= 100) return score;
+  private parseStructuredResponse(text: string): {
+    score: number;
+    structured: PerceptionStructuredContent | null;
+  } {
+    // Try to extract JSON from the response (handle possible markdown fences)
+    let jsonStr = text.trim();
+
+    // Strip markdown code fences if present
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
     }
 
-    // Fallback pattern: any "X/100"
-    const fallbackMatch = text.match(/(\d{1,3})\s*\/\s*100/);
-    if (fallbackMatch) {
-      const score = parseInt(fallbackMatch[1], 10);
-      if (score >= 0 && score <= 100) return score;
-    }
+    try {
+      const parsed = JSON.parse(jsonStr);
 
-    this.logger.warn(
-      'Could not parse score from AI response — defaulting to 0',
-    );
-    return 0;
+      // Clamp score to 0-100
+      const rawScore =
+        typeof parsed.score === 'number' ? parsed.score : parseInt(parsed.score, 10);
+      const score = Math.min(100, Math.max(0, isNaN(rawScore) ? 0 : Math.round(rawScore)));
+
+      const structured: PerceptionStructuredContent = {
+        score,
+        diagnosticoPrincipal: parsed.diagnosticoPrincipal ?? '',
+        bio: {
+          avaliacao: parsed.bio?.avaliacao ?? '',
+          sugestao: parsed.bio?.sugestao ?? null,
+        },
+        fotoPerfil: parsed.fotoPerfil
+          ? { avaliacao: parsed.fotoPerfil.avaliacao ?? '' }
+          : null,
+        gridVisual: parsed.gridVisual
+          ? { avaliacao: parsed.gridVisual.avaliacao ?? '' }
+          : null,
+        posts: {
+          avaliacao: parsed.posts?.avaliacao ?? '',
+          ajustes: Array.isArray(parsed.posts?.ajustes) ? parsed.posts.ajustes : [],
+        },
+        ajustesImediatos: Array.isArray(parsed.ajustesImediatos)
+          ? parsed.ajustesImediatos
+          : [],
+      };
+
+      return { score, structured };
+    } catch {
+      this.logger.warn(
+        'Failed to parse JSON from AI response — falling back to regex score extraction',
+      );
+
+      // Fallback: try regex for score
+      const primaryMatch = text.match(
+        /Percep[çc][ãa]o de valor:\s*(\d{1,3})\s*\/\s*100/i,
+      );
+      if (primaryMatch) {
+        const s = Math.min(100, Math.max(0, parseInt(primaryMatch[1], 10)));
+        return { score: s, structured: null };
+      }
+
+      const fallbackMatch = text.match(/(\d{1,3})\s*\/\s*100/);
+      if (fallbackMatch) {
+        const s = Math.min(100, Math.max(0, parseInt(fallbackMatch[1], 10)));
+        return { score: s, structured: null };
+      }
+
+      this.logger.warn('Could not parse score from AI response — defaulting to 0');
+      return { score: 0, structured: null };
+    }
   }
 
   /**
@@ -368,6 +417,8 @@ export class PerceptionService {
       menteeId: record.menteeId,
       score: record.score,
       rawResponse: record.rawResponse,
+      structuredContent:
+        (record.structuredContent as unknown as PerceptionStructuredContent) ?? null,
       status: record.status,
       errorMessage: record.errorMessage,
       createdAt: record.createdAt.toISOString(),

@@ -1,3 +1,11 @@
+export interface PosicionamentoJson {
+  sections: Array<{
+    key: string;
+    title: string;
+    content: string;
+  }>;
+}
+
 export function buildPrompt(params: {
   nome: string;
   persona: string;
@@ -8,47 +16,39 @@ export function buildPrompt(params: {
 } {
   const { nome, persona, headline } = params;
 
-  const system = `Você é um estrategista de posicionamento premium especializado em empresários.
-Com base na persona completa e na headline escolhida, gere o posicionamento final do mentorado seguindo exatamente a estrutura abaixo.
-⚠️ REGRAS OBRIGATÓRIAS:
-- A resposta deve seguir exatamente a ordem abaixo.
-- Todos os títulos e subtítulos devem estar em negrito.
-- Não usar emojis.
-- Não explicar nada fora da estrutura.
-- Linguagem estratégica, forte e direta.
-- Não escrever como IA.
-- Não repetir literalmente a headline escolhida.
-- As respostas para:
-- - O que você faz
-- - Quem você atende
-- - Qual seu diferencial
-- devem estar obrigatoriamente em primeira pessoa.
-- A Head line da bio deve explicar tudo em uma frase curta.
-- A Bio deve ser uma versão ainda mais curta da headline.
-- Não sair do padrão.
-- Não adicionar blocos extras.
+  const system = `Voce e um estrategista de posicionamento premium especializado em empresarios.
+Com base na persona completa e na headline escolhida, gere o posicionamento final do mentorado.
 
-Estrutura obrigatória da resposta:
-Posicionamento ${nome}
-O que você faz?
-Resposta em primeira pessoa.
-Quem você atende?
-Resposta em primeira pessoa.
-Qual seu diferencial?
-Resposta em primeira pessoa.
-Head line
-Frase curta explicando claramente o que ele faz, como faz e para quem.
-Bio
-Versão ainda mais curta e direta da headline.
-Abertura de vídeo
-Texto impactante e direto.
-Pitch 30 segundos
-Texto fluido em primeira pessoa explicando o posicionamento.
-Frase final
-Frase curta de autoridade.`;
+REGRAS OBRIGATORIAS:
+- Nao usar emojis.
+- Nao explicar nada fora da estrutura.
+- Linguagem estrategica, forte e direta.
+- Nao escrever como IA.
+- Nao repetir literalmente a headline escolhida.
+- As respostas para "O que voce faz", "Quem voce atende" e "Qual seu diferencial" devem estar obrigatoriamente em primeira pessoa.
+- A Headline da bio deve explicar tudo em uma frase curta.
+- A Bio deve ser uma versao ainda mais curta da headline.
+
+IMPORTANTE: Responda APENAS com um JSON valido, sem texto antes ou depois, sem code fences.
+O JSON deve ter a seguinte estrutura exata:
+
+{
+  "sections": [
+    { "key": "o_que_faz", "title": "O que voce faz?", "content": "resposta em primeira pessoa" },
+    { "key": "quem_atende", "title": "Quem voce atende?", "content": "resposta em primeira pessoa" },
+    { "key": "diferencial", "title": "Qual seu diferencial?", "content": "resposta em primeira pessoa" },
+    { "key": "headline", "title": "Headline", "content": "frase curta explicando claramente o que ele faz, como faz e para quem" },
+    { "key": "bio", "title": "Bio", "content": "versao ainda mais curta e direta da headline" },
+    { "key": "abertura_video", "title": "Abertura de video", "content": "texto impactante e direto" },
+    { "key": "pitch_30s", "title": "Pitch 30 segundos", "content": "texto fluido em primeira pessoa explicando o posicionamento" },
+    { "key": "frase_final", "title": "Frase final", "content": "frase curta de autoridade" }
+  ]
+}
+
+O array "sections" deve ter exatamente 8 itens com os keys: o_que_faz, quem_atende, diferencial, headline, bio, abertura_video, pitch_30s, frase_final nessa ordem.`;
 
   const user = [
-    `Informações disponíveis:`,
+    `Informacoes disponiveis:`,
     ``,
     `Nome do mentorado:`,
     nome,

@@ -1,3 +1,13 @@
+export interface MensagemClaraJson {
+  cards: Array<{
+    type: string;
+    title: string;
+    subtitle: string;
+    bodyText: string;
+    bulletPoints: string[];
+  }>;
+}
+
 export function buildPrompt(params: {
   nome: string;
   persona: string;
@@ -10,80 +20,50 @@ export function buildPrompt(params: {
 } {
   const { nome, persona, headline, pilares, momento_dificil } = params;
 
-  const system = `Você é um estrategista de posicionamento que escreve exatamente no modelo narrativo utilizado pelo Bruno.
-Com base nas informações abaixo, gere a Mensagem Clara seguindo rigorosamente a estrutura, formatação e estilo definidos.
-REGRAS OBRIGATÓRIAS DE FORMATAÇÃO
-O título deve ser exatamente:
-Mensagem clara de ${nome}
-Logo abaixo do título, enumere as etapas exatamente assim (sem texto adicional):
-1. Desejo
-2. Problema
-3. Guia
-4. Plano
-5. Convite
-6. Sucesso
-7. Fracasso
-Após a enumeração, cada bloco deve:
-- Ter o título em negrito
-- Ser separado por apenas uma linha em branco
-- Não ter espaçamento exagerado
-- Ter texto em parágrafos compactos (2 a 5 linhas por parágrafo)
-- Manter ritmo firme e natural
-- Não usar emojis.
-- Não usar linguagem espiritual.
-- Não escrever como IA.
-- Não usar clichês motivacionais.
-- Não adicionar explicações fora da estrutura.
-- Não repetir literalmente a headline.
+  const system = `Voce e um estrategista de posicionamento que escreve exatamente no modelo narrativo utilizado pelo Bruno.
+Com base nas informacoes abaixo, gere a Mensagem Clara seguindo rigorosamente o estilo definido.
+
+REGRAS OBRIGATORIAS:
+- Nao usar emojis.
+- Nao usar linguagem espiritual.
+- Nao escrever como IA.
+- Nao usar cliches motivacionais.
+- Nao repetir literalmente a headline.
 - O bloco "Guia" deve ser obrigatoriamente em primeira pessoa.
 - O bloco "Plano" deve integrar naturalmente os 3 pilares.
 - O bloco "Convite" deve ser seletivo.
 - "Sucesso" e "Fracasso" devem ser contrastantes e finalizar com impacto.
-Não adicionar blocos extras.
+- Texto em paragrafos compactos (2 a 5 linhas por paragrafo).
+- Ritmo firme e natural.
 
-ESTRUTURA OBRIGATÓRIA DA RESPOSTA
-Mensagem clara de ${nome}
-1. Desejo
-2. Problema
-3. Guia
-4. Plano
-5. Convite
-6. Sucesso
-7. Fracasso
+Instrucoes para cada bloco:
+- Desejo: Comece com "Eu sei que voce...". Mostre o que ele quer se tornar. Integre naturalmente os atributos centrais da headline. Mostre ambicao e conflito interno.
+- Problema: Comece com "Mas, infelizmente...". Mostre onde ele esta travado. Impacto no negocio e na vida pessoal. Incoerencia entre potencial e resultado.
+- Guia: Comece com "E eu te entendo." Fale em primeira pessoa. Inclua o momento mais dificil vivido. Mostre virada estrategica. Mostre autoridade construida.
+- Plano: Comece com "Quando eu entendi isso...". Apresente os 3 pilares de forma natural. Explique como cada pilar resolve o problema. Linguagem logica e estrategica.
+- Convite: Comece com "Por isso...". Chamada estrategica. Tom seletivo. Nao e para todo mundo. Direcionar para diagnostico ou aplicacao.
+- Sucesso: Comece com "Depois que voce aplica...". Mostre empresa estruturada, respeito, clareza e estabilidade.
+- Fracasso: Comece com "Se continuar...". Mostre o custo de nao agir. Termine com frase forte e definitiva.
 
-Desejo
-Comece com "Eu sei que você…". Mostre o que ele quer se tornar. Integre naturalmente os atributos centrais da headline. Mostre ambição e conflito interno.
-Problema
-Comece com "Mas, infelizmente…". Mostre onde ele está travado. Mostre impacto no negócio e na vida pessoal. Mostre incoerência entre potencial e resultado.
-Guia
-Comece com "E eu te entendo." Fale em primeira pessoa. Inclua o momento mais difícil vivido. Mostre virada estratégica. Mostre autoridade construída.
-Plano
-Comece com "Quando eu entendi isso…". Apresente os 3 pilares de forma natural. Explique como cada pilar resolve o problema. Linguagem lógica e estratégica.
-Convite
-Comece com "Por isso…". Chamada estratégica. Tom seletivo. Não é para todo mundo. Direcionar para diagnóstico ou aplicação.
-Sucesso
-Comece com "Depois que você aplica…". Mostre empresa estruturada, respeito, clareza e estabilidade.
-Fracasso
-Comece com "Se continuar…". Mostre o custo de não agir. Termine com frase forte e definitiva.
+IMPORTANTE: Responda APENAS com um JSON valido, sem texto antes ou depois, sem code fences.
+O JSON deve ter a seguinte estrutura exata:
 
-IMPORTANTE: Ao final da resposta, inclua um bloco JSON dentro de um code fence \`\`\`json com a seguinte estrutura exata:
-\`\`\`json
 {
   "cards": [
-    { "type": "DESEJO", "title": "Desejo", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "PROBLEMA", "title": "Problema", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "GUIA", "title": "Guia", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "PLANO", "title": "Plano", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "CONVITE", "title": "Convite", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "SUCESSO", "title": "Sucesso", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] },
-    { "type": "FRACASSO", "title": "Fracasso", "subtitle": "...", "bodyText": "...", "bulletPoints": ["..."] }
+    { "type": "DESEJO", "title": "Desejo", "subtitle": "resumo curto do bloco em 1 frase", "bodyText": "texto completo do bloco", "bulletPoints": ["ponto-chave 1", "ponto-chave 2", "ponto-chave 3"] },
+    { "type": "PROBLEMA", "title": "Problema", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] },
+    { "type": "GUIA", "title": "Guia", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] },
+    { "type": "PLANO", "title": "Plano", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] },
+    { "type": "CONVITE", "title": "Convite", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] },
+    { "type": "SUCESSO", "title": "Sucesso", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] },
+    { "type": "FRACASSO", "title": "Fracasso", "subtitle": "resumo curto", "bodyText": "texto completo", "bulletPoints": ["..."] }
   ]
 }
-\`\`\`
-O array "cards" deve ter exatamente 7 itens com os types: DESEJO, PROBLEMA, GUIA, PLANO, CONVITE, SUCESSO, FRACASSO nessa ordem. Cada card deve ter: type, title, subtitle (resumo curto do bloco), bodyText (texto principal do bloco), e bulletPoints (lista de pontos-chave extraídos do bloco).`;
+
+O array "cards" deve ter exatamente 7 itens com os types: DESEJO, PROBLEMA, GUIA, PLANO, CONVITE, SUCESSO, FRACASSO nessa ordem.`;
 
   const user = [
-    `Informações disponíveis:`,
+    `Informacoes disponiveis:`,
     ``,
     `Nome do mentorado:`,
     nome,
@@ -94,10 +74,10 @@ O array "cards" deve ter exatamente 7 itens com os types: DESEJO, PROBLEMA, GUIA
     `Headline escolhida:`,
     headline,
     ``,
-    `3 pilares do método:`,
+    `3 pilares do metodo:`,
     pilares,
     ``,
-    `Momento mais difícil vivido:`,
+    `Momento mais dificil vivido:`,
     momento_dificil,
   ].join('\n');
 

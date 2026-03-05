@@ -284,9 +284,10 @@ model PerceptionAnalysis {
   id       String @id @default(uuid())
   menteeId String @unique @map("mentee_id") // latest per mentee, upsert overwrites
 
-  score        Int          // 0-100 extracted from AI response
-  rawResponse  String       @map("raw_response") @db.Text // Full AI text
-  modelUsed    String?      @map("model_used")
+  score              Int          // 0-100 extracted from AI response
+  rawResponse        String       @map("raw_response") @db.Text // Full AI text
+  structuredContent  Json?        @map("structured_content")
+  modelUsed          String?      @map("model_used")
   status       ReportStatus @default(PROCESSING) // Reuse existing enum
   errorMessage String?      @map("error_message")
 

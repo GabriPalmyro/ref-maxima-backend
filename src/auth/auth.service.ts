@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -218,7 +220,7 @@ export class AuthService {
       },
     });
 
-    if (mentee) {
+    if (mentee && mentee.isActive) {
       const payload: MenteePayload = {
         sub: mentee.id,
         role: 'mentee',
@@ -262,28 +264,71 @@ export class AuthService {
     // the source of truth for the connection.
     let mentee;
 
-    if (invite.forMenteeId) {
-      mentee = await this.prisma.mentee.update({
-        where: { id: invite.forMenteeId },
-        data: {
-          authProvider: payload.provider,
-          socialId: payload.sub,
-          name: payload.name,
-          email: payload.email,
-          avatarUrl: payload.avatarUrl,
-        },
-      });
-    } else {
-      mentee = await this.prisma.mentee.create({
-        data: {
-          mentorId: invite.mentorId,
-          authProvider: payload.provider,
-          socialId: payload.sub,
-          email: payload.email,
-          name: payload.name,
-          avatarUrl: payload.avatarUrl,
-        },
-      });
+    try {
+      if (invite.forMenteeId) {
+        mentee = await this.prisma.mentee.update({
+          where: { id: invite.forMenteeId },
+          data: {
+            authProvider: payload.provider,
+            socialId: payload.sub,
+            name: payload.name,
+            email: payload.email,
+            avatarUrl: payload.avatarUrl,
+          },
+        });
+      } else {
+        mentee = await this.prisma.mentee.create({
+          data: {
+            mentorId: invite.mentorId,
+            authProvider: payload.provider,
+            socialId: payload.sub,
+            email: payload.email,
+            name: payload.name,
+            avatarUrl: payload.avatarUrl,
+          },
+        });
+      }
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2025') {
+          // forMenteeId points to a deleted mentee (e.g. mentor deleted before connecting)
+          throw new BadRequestException(
+            'Este convite não é mais válido. Peça um novo código ao seu mentor.',
+          );
+        }
+        if (err.code === 'P2002') {
+          // Stale inactive record with same socialId — reactivate and re-link it
+          const existing = await this.prisma.mentee.findUnique({
+            where: {
+              authProvider_socialId: {
+                authProvider: payload.provider,
+                socialId: payload.sub,
+              },
+            },
+          });
+          if (existing) {
+            // Clear any previous usedByMenteeId pointing to this mentee
+            // so the unique constraint allows the new invite to claim it
+            await this.prisma.inviteCode.updateMany({
+              where: { usedByMenteeId: existing.id },
+              data: { usedByMenteeId: null },
+            });
+            mentee = await this.prisma.mentee.update({
+              where: { id: existing.id },
+              data: {
+                mentorId: invite.mentorId,
+                isActive: true,
+                name: payload.name,
+                email: payload.email,
+                avatarUrl: payload.avatarUrl,
+              },
+            });
+          } else {
+            throw new InternalServerErrorException('Erro ao conectar conta.');
+          }
+        }
+      }
+      if (!mentee) throw new InternalServerErrorException('Erro ao conectar conta.');
     }
 
     await this.prisma.inviteCode.update({

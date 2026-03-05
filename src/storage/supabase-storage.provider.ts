@@ -38,18 +38,13 @@ export class SupabaseStorageProvider implements StorageProvider {
       .remove([path]);
 
     if (error)
-      this.logger.warn(
-        `Storage delete failed for ${path}: ${error.message}`,
-      );
+      this.logger.warn(`Storage delete failed for ${path}: ${error.message}`);
   }
 
   async deleteMany(paths: string[]): Promise<void> {
     if (paths.length === 0) return;
-    const { error } = await this.client.storage
-      .from(this.bucket)
-      .remove(paths);
+    const { error } = await this.client.storage.from(this.bucket).remove(paths);
 
-    if (error)
-      this.logger.warn(`Storage deleteMany failed: ${error.message}`);
+    if (error) this.logger.warn(`Storage deleteMany failed: ${error.message}`);
   }
 }

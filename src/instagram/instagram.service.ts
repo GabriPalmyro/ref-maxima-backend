@@ -352,8 +352,12 @@ export class InstagramService {
         }
       }
 
-      // No cache — re-throw so controller returns 500
-      throw error;
+      // No cache — return error status so the caller can proceed normally
+      return {
+        status: 'error' as const,
+        message: 'Instagram data temporarily unavailable. Please try again later.',
+        stale: true as const,
+      };
     }
   }
 
@@ -434,21 +438,23 @@ export class InstagramService {
 
     // Posts from separate /get_ig_user_posts.php endpoint
     // Shape: posts[].node.image_versions2.candidates[0].url, .caption.text
-    const posts: InstagramPostData[] = rawPosts.slice(0, 12).map((post: any) => {
-      const node = post.node ?? post;
-      const imageUrl =
-        node.image_versions2?.candidates?.[0]?.url ??
-        node.display_url ??
-        node.thumbnail_src ??
-        '';
-      return {
-        imageUrl,
-        likeCount: node.like_count ?? node.edge_liked_by?.count ?? 0,
-        commentCount:
-          node.comment_count ?? node.edge_media_to_comment?.count ?? 0,
-        caption: node.caption?.text ?? null,
-      };
-    });
+    const posts: InstagramPostData[] = rawPosts
+      .slice(0, 12)
+      .map((post: any) => {
+        const node = post.node ?? post;
+        const imageUrl =
+          node.image_versions2?.candidates?.[0]?.url ??
+          node.display_url ??
+          node.thumbnail_src ??
+          '';
+        return {
+          imageUrl,
+          likeCount: node.like_count ?? node.edge_liked_by?.count ?? 0,
+          commentCount:
+            node.comment_count ?? node.edge_media_to_comment?.count ?? 0,
+          caption: node.caption?.text ?? null,
+        };
+      });
 
     return { profile, posts };
   }

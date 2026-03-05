@@ -28,7 +28,9 @@ export class ImageProcessingService {
       clearTimeout(timeout);
 
       if (!response.ok) {
-        this.logger.warn(`Image download failed (HTTP ${response.status}): ${url}`);
+        this.logger.warn(
+          `Image download failed (HTTP ${response.status}): ${url}`,
+        );
         return null;
       }
 
@@ -105,9 +107,13 @@ export class ImageProcessingService {
    */
   async processProfilePic(buffer: Buffer): Promise<Buffer> {
     return sharp(buffer)
-      .resize(ImageProcessingService.PROFILE_SIZE, ImageProcessingService.PROFILE_SIZE, {
-        fit: 'cover',
-      })
+      .resize(
+        ImageProcessingService.PROFILE_SIZE,
+        ImageProcessingService.PROFILE_SIZE,
+        {
+          fit: 'cover',
+        },
+      )
       .jpeg({ quality: 85 })
       .toBuffer();
   }

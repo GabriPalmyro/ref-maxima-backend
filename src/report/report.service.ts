@@ -36,6 +36,22 @@ const ONBOARDING_AFTER_REPORT: Record<ReportType, OnboardingStatus> = {
 
 const VALID_CARD_TYPES = new Set<string>(Object.values(MessageCardType));
 
+/**
+ * Extracts and parses JSON from AI response.
+ * Handles both raw JSON and JSON wrapped in code fences.
+ */
+function parseAiJson(content: string): unknown {
+  let text = content.trim();
+
+  // Strip code fences if present
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+  }
+
+  return JSON.parse(text);
+}
+
 @Injectable()
 export class ReportService {
   constructor(
@@ -119,36 +135,36 @@ export class ReportService {
 
     try {
       const aiResult = await this.aiService.generateCompletion(system, user);
+      const parsed = parseAiJson(aiResult.content);
 
+      // Create message cards for MENSAGEM_CLARA
       if (dto.type === 'MENSAGEM_CLARA') {
-        const jsonMatch = aiResult.content.match(/```json\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[1]);
+        const data = parsed as {
+          cards: Array<{
+            type: string;
+            title: string;
+            subtitle?: string;
+            bodyText: string;
+            bulletPoints?: string[];
+          }>;
+        };
+        if (data.cards) {
           await Promise.all(
-            parsed.cards
-              .filter((card: { type: string }) =>
-                VALID_CARD_TYPES.has(card.type),
-              )
-              .map(
-                (card: {
-                  type: MessageCardType;
-                  title: string;
-                  subtitle?: string;
-                  bodyText: string;
-                  bulletPoints?: string[];
-                }) =>
-                  this.prisma.messageCard.create({
-                    data: {
-                      reportId: report.id,
-                      menteeId,
-                      cardType: card.type,
-                      sortOrder: CARD_SORT_ORDER[card.type],
-                      title: card.title,
-                      subtitle: card.subtitle,
-                      bodyText: card.bodyText,
-                      bulletPoints: card.bulletPoints,
-                    },
-                  }),
+            data.cards
+              .filter((card) => VALID_CARD_TYPES.has(card.type))
+              .map((card) =>
+                this.prisma.messageCard.create({
+                  data: {
+                    reportId: report.id,
+                    menteeId,
+                    cardType: card.type as MessageCardType,
+                    sortOrder: CARD_SORT_ORDER[card.type as MessageCardType],
+                    title: card.title,
+                    subtitle: card.subtitle,
+                    bodyText: card.bodyText,
+                    bulletPoints: card.bulletPoints,
+                  },
+                }),
               ),
           );
         }
@@ -159,6 +175,7 @@ export class ReportService {
         data: {
           status: 'COMPLETED',
           rawResponse: aiResult.content,
+          structuredContent: parsed as any,
           modelUsed: aiResult.model,
         },
         include: { messageCards: { orderBy: { sortOrder: 'asc' } } },
@@ -243,9 +260,12 @@ export class ReportService {
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
+    // Merge headlines into existing structuredContent (don't overwrite persona JSON)
+    const existingContent =
+      (personaReport.structuredContent as Record<string, unknown>) ?? {};
     await this.prisma.generatedReport.update({
       where: { id: personaReport.id },
-      data: { structuredContent: { headlines } },
+      data: { structuredContent: { ...existingContent, headlines } },
     });
 
     return { headlines };

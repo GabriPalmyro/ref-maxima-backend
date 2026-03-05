@@ -62,7 +62,7 @@ export class InstagramApiService {
     }
   }
 
-  async fetchPosts(username: string, count = 12): Promise<any[]> {
+  async fetchPosts(username: string, count = 20): Promise<any[]> {
     this.logger.log(
       `Fetching Instagram posts for: ${username} (count=${count})`,
     );
