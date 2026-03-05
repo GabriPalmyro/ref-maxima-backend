@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +12,7 @@ import { ReportService } from '../report/report.service';
 import { InviteService } from '../invite/invite.service';
 import { CreateMenteeDto } from './dto/create-mentee.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
+import { STORAGE_PROVIDER, StorageProvider } from '../storage/storage.interface';
 
 @Injectable()
 export class MentorService {
@@ -14,6 +20,7 @@ export class MentorService {
     private readonly prisma: PrismaService,
     private readonly reportService: ReportService,
     private readonly inviteService: InviteService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   async getProfile(mentorId: string) {
@@ -195,5 +202,35 @@ export class MentorService {
   ) {
     await this.verifyMenteeBelongsToMentor(mentorId, menteeId);
     return this.reportService.generateHeadlines(menteeId, regenerate);
+  }
+
+  async uploadMentorAvatar(
+    mentorId: string,
+    file: Buffer,
+    contentType: string,
+  ): Promise<{ url: string }> {
+    const path = `avatars/mentors/${mentorId}`;
+    const url = await this.storage.upload(path, file, contentType);
+    await this.prisma.mentor.update({
+      where: { id: mentorId },
+      data: { avatarUrl: url },
+    });
+    return { url };
+  }
+
+  async uploadMenteeAvatar(
+    mentorId: string,
+    menteeId: string,
+    file: Buffer,
+    contentType: string,
+  ): Promise<{ url: string }> {
+    await this.verifyMenteeBelongsToMentor(mentorId, menteeId);
+    const path = `avatars/mentees/${menteeId}`;
+    const url = await this.storage.upload(path, file, contentType);
+    await this.prisma.mentee.update({
+      where: { id: menteeId },
+      data: { avatarUrl: url },
+    });
+    return { url };
   }
 }
