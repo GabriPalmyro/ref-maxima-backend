@@ -10,4 +10,9 @@ export class UpdateMenteeProfileDto {
   @IsString()
   @MaxLength(100)
   instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  avatarUrl?: string;
 }

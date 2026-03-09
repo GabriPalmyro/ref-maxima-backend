@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -24,5 +34,24 @@ export class MenteeController {
     @Body() dto: UpdateMenteeProfileDto,
   ) {
     return this.menteeService.updateProfile(user.sub, dto);
+  }
+
+  @Post('avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const url = await this.menteeService.uploadAvatar(
+      user.sub,
+      file.buffer,
+      file.mimetype,
+    );
+    await this.menteeService.updateProfile(user.sub, { avatarUrl: url });
+    return { url };
   }
 }

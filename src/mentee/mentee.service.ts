@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  STORAGE_PROVIDER,
+  StorageProvider,
+} from '../storage/storage.interface';
 import { UpdateMenteeProfileDto } from './dto/update-mentee-profile.dto';
 
 @Injectable()
 export class MenteeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+  ) {}
 
   async getProfile(menteeId: string) {
     const mentee = await this.prisma.mentee.findUnique({
@@ -43,6 +50,7 @@ export class MenteeService {
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.instagram !== undefined && { instagram: dto.instagram }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
       },
       select: {
         id: true,
@@ -54,5 +62,14 @@ export class MenteeService {
         onboardingStatus: true,
       },
     });
+  }
+
+  async uploadAvatar(
+    menteeId: string,
+    file: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const path = `avatars/mentee-${menteeId}`;
+    return this.storage.upload(path, file, contentType);
   }
 }
