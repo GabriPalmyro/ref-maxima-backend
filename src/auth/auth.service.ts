@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -127,18 +126,24 @@ export class AuthService {
       throw new UnauthorizedException('Token not issued for this application');
     }
 
-    const { email, sub: googleId, picture } = userInfo;
+    const { email, sub: googleId, name, picture } = userInfo;
 
-    const mentor = await this.prisma.mentor.findUnique({
+    let mentor = await this.prisma.mentor.findUnique({
       where: { email },
     });
 
     if (!mentor) {
-      throw new ForbiddenException('Mentor not registered');
-    }
-
-    if (!mentor.googleId) {
-      await this.prisma.mentor.update({
+      mentor = await this.prisma.mentor.create({
+        data: {
+          email,
+          googleId,
+          name: name ?? email.split('@')[0],
+          authProvider: 'GOOGLE',
+          avatarUrl: picture,
+        },
+      });
+    } else if (!mentor.googleId) {
+      mentor = await this.prisma.mentor.update({
         where: { id: mentor.id },
         data: {
           googleId,
