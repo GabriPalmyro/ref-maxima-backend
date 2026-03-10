@@ -22,5 +22,11 @@ async function bootstrap() {
   );
 
   await app.listen(process.env.PORT ?? 3000);
+
+  // Configure server timeouts for long SSE connections (10 minutes)
+  const server = app.getHttpServer();
+  server.setTimeout(10 * 60 * 1000);
+  server.keepAliveTimeout = 10 * 60 * 1000;
+  server.headersTimeout = 10 * 60 * 1000 + 1000;
 }
 bootstrap();
