@@ -17,7 +17,11 @@ export class ChatService {
     signal: AbortSignal,
   ): Promise<{ conversationId: string; stream: AsyncGenerator<string> }> {
     // 1. Get or create conversation
-    let conversation: { id: string; topic: string | null; summary: string | null };
+    let conversation: {
+      id: string;
+      topic: string | null;
+      summary: string | null;
+    };
 
     if (dto.conversationId) {
       const existing = await this.prisma.conversation.findUnique({

@@ -12,6 +12,8 @@ import { InstagramModule } from './instagram/instagram.module';
 import { PerceptionModule } from './perception/perception.module';
 import { StorageModule } from './storage/storage.module';
 import { InstagramDraftModule } from './instagram-draft/instagram-draft.module';
+import { ProfilePhotoModule } from './profile-photo/profile-photo.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { InstagramDraftModule } from './instagram-draft/instagram-draft.module';
     PerceptionModule,
     StorageModule,
     InstagramDraftModule,
+    ProfilePhotoModule,
+    ChatModule,
   ],
 })
 export class AppModule {}
