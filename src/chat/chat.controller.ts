@@ -1,7 +1,9 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Param,
   Req,
   Res,
   UseGuards,
@@ -22,6 +24,19 @@ import { SendMessageDto } from './dto/send-message.dto';
 @Roles('mentee')
 export class ChatController {
   constructor(private chatService: ChatService) {}
+
+  @Get('conversations')
+  async listConversations(@CurrentUser() user: JwtPayload) {
+    return this.chatService.listConversations(user.sub);
+  }
+
+  @Get('conversations/:id')
+  async getConversation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') conversationId: string,
+  ) {
+    return this.chatService.getConversation(user.sub, conversationId);
+  }
 
   @Post()
   @HttpCode(200)

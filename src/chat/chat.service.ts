@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -10,6 +14,40 @@ export class ChatService {
     private prisma: PrismaService,
     private aiService: AiService,
   ) {}
+
+  async listConversations(menteeId: string) {
+    return this.prisma.conversation.findMany({
+      where: { menteeId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+  }
+
+  async getConversation(menteeId: string, conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    if (conversation.menteeId !== menteeId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return conversation;
+  }
 
   async prepareAndStream(
     menteeId: string,
