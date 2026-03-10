@@ -61,6 +61,11 @@ enum InviteStatus {
   EXPIRED
 }
 
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
 // =============================================
 // MENTOR
 // =============================================
@@ -144,6 +149,8 @@ model Mentee {
   instagramProfile    InstagramProfile?
   instagramDraft      InstagramDraft?
   perceptionAnalysis  PerceptionAnalysis?
+  generatedProfilePhotos GeneratedProfilePhoto[]
+  conversations       Conversation[]
 
   @@unique([authProvider, socialId])
   @@unique([mentorId, email])
@@ -298,4 +305,63 @@ model PerceptionAnalysis {
   mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
 
   @@map("perception_analyses")
+}
+
+// =============================================
+// GENERATED PROFILE PHOTO
+// =============================================
+// AI-generated profile photo per mentee using Nano Banana 2
+
+model GeneratedProfilePhoto {
+  id           String   @id @default(uuid())
+  menteeId     String   @map("mentee_id")
+  gender       String   // "male" or "female"
+  originalUrl  String   @map("original_url") @db.Text
+  generatedUrl String   @map("generated_url") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mentee Mentee @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+
+  @@index([menteeId])
+  @@map("generated_profile_photos")
+}
+
+// =============================================
+// CONVERSATION
+// =============================================
+// AI chat conversations per mentee
+// topic: "legendas" | "criativos" | "palestra" | "landing_page"
+
+model Conversation {
+  id        String   @id @default(uuid())
+  menteeId  String   @map("mentee_id")
+  topic     String?
+  title     String?
+  summary   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mentee   Mentee    @relation(fields: [menteeId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([menteeId])
+  @@map("conversations")
+}
+
+// =============================================
+// MESSAGE
+// =============================================
+// Individual messages within a conversation
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String      @db.Text
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
 }
