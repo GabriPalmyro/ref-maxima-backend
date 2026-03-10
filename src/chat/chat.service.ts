@@ -49,6 +49,26 @@ export class ChatService {
     return conversation;
   }
 
+  async deleteConversation(menteeId: string, conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    if (conversation.menteeId !== menteeId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    return { deleted: true };
+  }
+
   async prepareAndStream(
     menteeId: string,
     dto: SendMessageDto,

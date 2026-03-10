@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   Req,
@@ -36,6 +37,14 @@ export class ChatController {
     @Param('id') conversationId: string,
   ) {
     return this.chatService.getConversation(user.sub, conversationId);
+  }
+
+  @Delete('conversations/:id')
+  async deleteConversation(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') conversationId: string,
+  ) {
+    return this.chatService.deleteConversation(user.sub, conversationId);
   }
 
   @Post()
