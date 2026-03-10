@@ -7,6 +7,7 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Put,
   UploadedFile,
@@ -22,6 +23,7 @@ import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { InstagramDraftService } from '../instagram-draft/instagram-draft.service';
 import { GenerateReportDto } from '../report/dto/generate-report.dto';
 import { CreateMenteeDto } from './dto/create-mentee.dto';
+import { UpdateMenteeDto } from './dto/update-mentee.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
 import { MentorService } from './mentor.service';
 
@@ -69,6 +71,15 @@ export class MentorController {
   @Post('mentees')
   createMentee(@CurrentUser() user: JwtPayload, @Body() dto: CreateMenteeDto) {
     return this.mentorService.createMentee(user.sub, dto);
+  }
+
+  @Patch('mentees/:id')
+  updateMentee(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateMenteeDto,
+  ) {
+    return this.mentorService.updateMentee(user.sub, id, dto);
   }
 
   @Delete('mentees/:id')

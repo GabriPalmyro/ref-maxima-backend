@@ -333,7 +333,8 @@ export class AuthService {
           }
         }
       }
-      if (!mentee) throw new InternalServerErrorException('Erro ao conectar conta.');
+      if (!mentee)
+        throw new InternalServerErrorException('Erro ao conectar conta.');
     }
 
     await this.prisma.inviteCode.update({

@@ -355,7 +355,8 @@ export class InstagramService {
       // No cache — return error status so the caller can proceed normally
       return {
         status: 'error' as const,
-        message: 'Instagram data temporarily unavailable. Please try again later.',
+        message:
+          'Instagram data temporarily unavailable. Please try again later.',
         stale: true as const,
       };
     }

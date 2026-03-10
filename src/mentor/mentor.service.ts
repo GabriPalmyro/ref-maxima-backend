@@ -11,8 +11,12 @@ import { GenerateReportDto } from '../report/dto/generate-report.dto';
 import { ReportService } from '../report/report.service';
 import { InviteService } from '../invite/invite.service';
 import { CreateMenteeDto } from './dto/create-mentee.dto';
+import { UpdateMenteeDto } from './dto/update-mentee.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
-import { STORAGE_PROVIDER, StorageProvider } from '../storage/storage.interface';
+import {
+  STORAGE_PROVIDER,
+  StorageProvider,
+} from '../storage/storage.interface';
 
 @Injectable()
 export class MentorService {
@@ -115,6 +119,28 @@ export class MentorService {
     });
 
     return mentee;
+  }
+
+  async updateMentee(mentorId: string, menteeId: string, dto: UpdateMenteeDto) {
+    await this.verifyMenteeBelongsToMentor(mentorId, menteeId);
+    return this.prisma.mentee.update({
+      where: { id: menteeId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.instagram !== undefined && { instagram: dto.instagram }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        instagram: true,
+        avatarUrl: true,
+        phone: true,
+        onboardingStatus: true,
+        createdAt: true,
+      },
+    });
   }
 
   async deleteMentee(mentorId: string, menteeId: string): Promise<void> {

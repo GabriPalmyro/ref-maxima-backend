@@ -225,7 +225,9 @@ export class PerceptionService {
     }
 
     // 5. Parse structured response from AI
-    const { score, structured } = this.parseStructuredResponse(aiResult.content);
+    const { score, structured } = this.parseStructuredResponse(
+      aiResult.content,
+    );
 
     // 6. Upsert result
     const record = await this.prisma.perceptionAnalysis.upsert({
@@ -357,8 +359,13 @@ export class PerceptionService {
 
       // Clamp score to 0-100
       const rawScore =
-        typeof parsed.score === 'number' ? parsed.score : parseInt(parsed.score, 10);
-      const score = Math.min(100, Math.max(0, isNaN(rawScore) ? 0 : Math.round(rawScore)));
+        typeof parsed.score === 'number'
+          ? parsed.score
+          : parseInt(parsed.score, 10);
+      const score = Math.min(
+        100,
+        Math.max(0, isNaN(rawScore) ? 0 : Math.round(rawScore)),
+      );
 
       const structured: PerceptionStructuredContent = {
         score,
@@ -375,7 +382,9 @@ export class PerceptionService {
           : null,
         posts: {
           avaliacao: parsed.posts?.avaliacao ?? '',
-          ajustes: Array.isArray(parsed.posts?.ajustes) ? parsed.posts.ajustes : [],
+          ajustes: Array.isArray(parsed.posts?.ajustes)
+            ? parsed.posts.ajustes
+            : [],
         },
         ajustesImediatos: Array.isArray(parsed.ajustesImediatos)
           ? parsed.ajustesImediatos
@@ -403,7 +412,9 @@ export class PerceptionService {
         return { score: s, structured: null };
       }
 
-      this.logger.warn('Could not parse score from AI response — defaulting to 0');
+      this.logger.warn(
+        'Could not parse score from AI response — defaulting to 0',
+      );
       return { score: 0, structured: null };
     }
   }
@@ -418,7 +429,8 @@ export class PerceptionService {
       score: record.score,
       rawResponse: record.rawResponse,
       structuredContent:
-        (record.structuredContent as unknown as PerceptionStructuredContent) ?? null,
+        (record.structuredContent as unknown as PerceptionStructuredContent) ??
+        null,
       status: record.status,
       errorMessage: record.errorMessage,
       createdAt: record.createdAt.toISOString(),
