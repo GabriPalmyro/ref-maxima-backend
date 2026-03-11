@@ -7,6 +7,7 @@ import {
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CorrectReportDto } from '../report/dto/correct-report.dto';
 import { GenerateReportDto } from '../report/dto/generate-report.dto';
 import { ReportService } from '../report/report.service';
 import { InviteService } from '../invite/invite.service';
@@ -219,6 +220,16 @@ export class MentorService {
   ) {
     await this.verifyMenteeBelongsToMentor(mentorId, menteeId);
     return this.reportService.generateReport(menteeId, dto);
+  }
+
+  async verifyAndCorrect(
+    mentorId: string,
+    menteeId: string,
+    reportId: string,
+    dto: CorrectReportDto,
+  ) {
+    await this.verifyMenteeBelongsToMentor(mentorId, menteeId);
+    return this.reportService.correctReport(menteeId, reportId, dto);
   }
 
   async generateHeadlines(

@@ -6,6 +6,7 @@ import {
 import { MessageCardType, OnboardingStatus, ReportType } from '@prisma/client';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CorrectReportDto } from './dto/correct-report.dto';
 import { GenerateReportDto } from './dto/generate-report.dto';
 import { buildHeadlinesPrompt } from './prompts/gerar-headlines.prompt';
 import { buildPrompt as mensagemClaraPrompt } from './prompts/mensagem-clara.prompt';
@@ -201,6 +202,115 @@ export class ReportService {
     }
   }
 
+  async correctReport(
+    menteeId: string,
+    reportId: string,
+    dto: CorrectReportDto,
+  ) {
+    const existing = await this.prisma.generatedReport.findFirst({
+      where: { id: reportId, menteeId },
+      include: { messageCards: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Report not found');
+    }
+
+    if (existing.status !== 'COMPLETED') {
+      throw new ConflictException('Only completed reports can be corrected');
+    }
+
+    // Rebuild original prompts
+    const { system, user } = await this.rebuildPrompts(
+      menteeId,
+      existing.type as ReportType,
+      existing.answers as Record<string, string>,
+    );
+
+    // Delete old message cards if MENSAGEM_CLARA
+    if (existing.type === 'MENSAGEM_CLARA' && existing.messageCards.length > 0) {
+      await this.prisma.messageCard.deleteMany({
+        where: { reportId: existing.id },
+      });
+    }
+
+    // Mark as PROCESSING
+    await this.prisma.generatedReport.update({
+      where: { id: existing.id },
+      data: { status: 'PROCESSING', errorMessage: null },
+    });
+
+    try {
+      const aiResult = await this.aiService.generateCompletionWithHistory([
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+        { role: 'assistant', content: existing.rawResponse! },
+        {
+          role: 'user',
+          content: `O mentor revisou o relatório acima e pediu a seguinte correção:\n\n"${dto.correction}"\n\nPor favor, gere novamente o relatório completo no mesmo formato JSON, aplicando a correção solicitada. Mantenha todas as seções e a mesma estrutura. Responda APENAS com o JSON corrigido.`,
+        },
+      ]);
+
+      const parsed = parseAiJson(aiResult.content);
+
+      // Recreate message cards for MENSAGEM_CLARA
+      if (existing.type === 'MENSAGEM_CLARA') {
+        const data = parsed as {
+          cards: Array<{
+            type: string;
+            title: string;
+            subtitle?: string;
+            bodyText: string;
+            bulletPoints?: string[];
+          }>;
+        };
+        if (data.cards) {
+          await Promise.all(
+            data.cards
+              .filter((card) => VALID_CARD_TYPES.has(card.type))
+              .map((card) =>
+                this.prisma.messageCard.create({
+                  data: {
+                    reportId: existing.id,
+                    menteeId,
+                    cardType: card.type as MessageCardType,
+                    sortOrder: CARD_SORT_ORDER[card.type as MessageCardType],
+                    title: card.title,
+                    subtitle: card.subtitle,
+                    bodyText: card.bodyText,
+                    bulletPoints: card.bulletPoints,
+                  },
+                }),
+              ),
+          );
+        }
+      }
+
+      const updated = await this.prisma.generatedReport.update({
+        where: { id: existing.id },
+        data: {
+          status: 'COMPLETED',
+          rawResponse: aiResult.content,
+          structuredContent: parsed as any,
+          modelUsed: aiResult.model,
+          version: { increment: 1 },
+        },
+        include: { messageCards: { orderBy: { sortOrder: 'asc' } } },
+      });
+
+      return updated;
+    } catch (error) {
+      await this.prisma.generatedReport.update({
+        where: { id: existing.id },
+        data: {
+          status: 'ERROR',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+      throw error;
+    }
+  }
+
   async getReports(menteeId: string) {
     return this.prisma.generatedReport.findMany({
       where: { menteeId },
@@ -219,6 +329,50 @@ export class ReportService {
     }
 
     return report;
+  }
+
+  private async rebuildPrompts(
+    menteeId: string,
+    type: ReportType,
+    answers: Record<string, string>,
+  ): Promise<{ system: string; user: string }> {
+    if (type === 'PERSONA_ICP') {
+      return personaIcpPrompt(answers);
+    }
+
+    if (type === 'POSICIONAMENTO') {
+      const mentee = await this.prisma.mentee.findUnique({
+        where: { id: menteeId },
+      });
+      const personaReport = await this.getCompletedReport(
+        menteeId,
+        'PERSONA_ICP',
+      );
+      return posicionamentoPrompt({
+        nome: mentee!.name,
+        persona: personaReport.rawResponse!,
+        headline: answers.headline,
+      });
+    }
+
+    // MENSAGEM_CLARA
+    const mentee = await this.prisma.mentee.findUnique({
+      where: { id: menteeId },
+    });
+    const personaReport = await this.getCompletedReport(
+      menteeId,
+      'PERSONA_ICP',
+    );
+    const posReport = await this.getCompletedReport(menteeId, 'POSICIONAMENTO');
+    const posAnswers = posReport.answers as Record<string, string>;
+    const personaAnswers = personaReport.answers as Record<string, string>;
+    return mensagemClaraPrompt({
+      nome: mentee!.name,
+      persona: personaReport.rawResponse!,
+      headline: posAnswers.headline,
+      pilares: personaAnswers.q5,
+      momento_dificil: answers.momento_dificil,
+    });
   }
 
   private async getCompletedReport(menteeId: string, type: ReportType) {

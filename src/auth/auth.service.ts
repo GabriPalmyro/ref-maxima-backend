@@ -252,6 +252,38 @@ export class AuthService {
   }
 
   async menteeConnect(payload: UnlinkedPayload, code: string) {
+    // ── Apple Review bypass ──────────────────────────────
+    const reviewCode = this.config.get<string>('REVIEW_INVITE_CODE');
+    const reviewMentorId = this.config.get<string>('REVIEW_MENTOR_ID');
+
+    if (
+      reviewCode &&
+      reviewMentorId &&
+      code.toUpperCase() === reviewCode.toUpperCase()
+    ) {
+      const mentee = await this.prisma.mentee.create({
+        data: {
+          mentorId: reviewMentorId,
+          authProvider: payload.provider,
+          socialId: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          avatarUrl: payload.avatarUrl,
+        },
+      });
+
+      const jwtPayload: MenteePayload = {
+        sub: mentee.id,
+        role: 'mentee',
+        mentorId: reviewMentorId,
+        email: mentee.email,
+        name: mentee.name,
+      };
+
+      return { accessToken: this.jwt.sign(jwtPayload) };
+    }
+    // ── End Apple Review bypass ──────────────────────────
+
     const invite = await this.prisma.inviteCode.findUnique({
       where: { code: code.toUpperCase() },
     });

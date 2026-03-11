@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { InstagramDraftService } from '../instagram-draft/instagram-draft.service';
+import { CorrectReportDto } from '../report/dto/correct-report.dto';
 import { GenerateReportDto } from '../report/dto/generate-report.dto';
 import { CreateMenteeDto } from './dto/create-mentee.dto';
 import { UpdateMenteeDto } from './dto/update-mentee.dto';
@@ -113,6 +114,21 @@ export class MentorController {
     @Body() dto: GenerateReportDto,
   ) {
     return this.mentorService.verifyAndGenerate(user.sub, menteeId, dto);
+  }
+
+  @Post('mentees/:menteeId/reports/:reportId/correct')
+  correctMenteeReport(
+    @CurrentUser() user: JwtPayload,
+    @Param('menteeId') menteeId: string,
+    @Param('reportId') reportId: string,
+    @Body() dto: CorrectReportDto,
+  ) {
+    return this.mentorService.verifyAndCorrect(
+      user.sub,
+      menteeId,
+      reportId,
+      dto,
+    );
   }
 
   @Get('mentees/:menteeId/reports')

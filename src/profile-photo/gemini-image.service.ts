@@ -10,7 +10,7 @@ export class GeminiImageService {
   private readonly logger = new Logger(GeminiImageService.name);
   private readonly apiUrl: string;
   private readonly apiKey: string;
-  private readonly model = 'google/gemini-3.1-flash-image-preview';
+  private readonly model = 'google/gemini-3-pro-image-preview';
 
   constructor(private readonly config: ConfigService) {
     this.apiUrl = config.getOrThrow<string>('AI_API_URL');
@@ -47,7 +47,7 @@ export class GeminiImageService {
       },
     };
 
-    this.logger.log('Calling Nano Banana 2 via OpenRouter...');
+    this.logger.log('Calling Nano Banana Pro via OpenRouter...');
 
     const response = await fetch(this.apiUrl, {
       method: 'POST',
