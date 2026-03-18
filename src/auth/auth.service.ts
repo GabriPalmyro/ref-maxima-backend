@@ -256,6 +256,8 @@ export class AuthService {
     const reviewCode = this.config.get<string>('REVIEW_INVITE_CODE');
     const reviewMenteeId = this.config.get<string>('REVIEW_MENTEE_ID');
 
+    console.log('[ReviewBypass] reviewCode:', JSON.stringify(reviewCode), 'reviewMenteeId:', JSON.stringify(reviewMenteeId), 'submitted code:', JSON.stringify(code));
+
     if (
       reviewCode &&
       reviewMenteeId &&
