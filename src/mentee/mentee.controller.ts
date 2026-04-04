@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -34,6 +35,11 @@ export class MenteeController {
     @Body() dto: UpdateMenteeProfileDto,
   ) {
     return this.menteeService.updateProfile(user.sub, dto);
+  }
+
+  @Delete('account')
+  deleteAccount(@CurrentUser() user: JwtPayload) {
+    return this.menteeService.deleteAccount(user.sub);
   }
 
   @Post('avatar')

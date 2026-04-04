@@ -64,6 +64,17 @@ export class MenteeService {
     });
   }
 
+  async deleteAccount(menteeId: string) {
+    const mentee = await this.prisma.mentee.findUnique({
+      where: { id: menteeId },
+    });
+    if (!mentee) throw new NotFoundException('Mentee not found');
+
+    // Hard delete — cascades to reports, message cards, invite codes
+    await this.prisma.mentee.delete({ where: { id: menteeId } });
+    return { message: 'Account deleted' };
+  }
+
   async uploadAvatar(
     menteeId: string,
     file: Buffer,
