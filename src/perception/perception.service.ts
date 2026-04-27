@@ -345,7 +345,7 @@ export class PerceptionService {
     score: number;
     structured: PerceptionStructuredContent | null;
   } {
-    // Try to extract JSON from the response (handle possible markdown fences)
+    // Try to extract JSON from the response (handle possible markdown fences and trailing text)
     let jsonStr = text.trim();
 
     // Strip markdown code fences if present
@@ -354,10 +354,35 @@ export class PerceptionService {
       jsonStr = fenceMatch[1].trim();
     }
 
+    // Extract only the first complete JSON object/array, discarding trailing text
+    const jsonStart = jsonStr.search(/[{[]/);
+    if (jsonStart !== -1) {
+      const opener = jsonStr[jsonStart];
+      const closer = opener === '{' ? '}' : ']';
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = jsonStart; i < jsonStr.length; i++) {
+        const ch = jsonStr[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\' && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === opener) depth++;
+        else if (ch === closer) {
+          depth--;
+          if (depth === 0) {
+            jsonStr = jsonStr.slice(jsonStart, i + 1);
+            break;
+          }
+        }
+      }
+    }
+
     try {
       const parsed = JSON.parse(jsonStr);
 
-      // Clamp score to 0-100
+      // Clamp score to 0-100 regardless of what the AI returned
       const rawScore =
         typeof parsed.score === 'number'
           ? parsed.score
